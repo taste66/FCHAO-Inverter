@@ -1,9 +1,18 @@
 # FCHAO-Inverter
 Hacking the FCHAO Inverter a.k.a. Peter inverter
 
-After watching [this video](https://www.youtube.com/watch?v=I5rBVGSszBY) regarding the affortable mains inverter I decided to buy it for a project which needed a solar charger for an electrical outboard engine. The engine unfortunately had a propriatary charger with additional communication so I needed 230Vac@1250Watt. Therfore I purchased the 24v 2500Watt FCHAO to make sure it was only loaded 50% which usually greatly increases the operating time.
+After watching [this video](https://www.youtube.com/watch?v=I5rBVGSszBY) regarding the affortable mains inverter. 
+Thank you [OffGridGarageAustralia](https://www.youtube.com/@OffGridGarageAustralia) for providing this usefull information.
+I decided to buy it for a project which needed a solar charger for an electrical outboard engine.
+
+# The project 
+A seascout group decided to replace one of their gasoline engins with and EPropulsion motor which came with this [battery](https://www.epropulsion.com/e-series-batteries) and this 25A/48V [charger](https://www.epropulsion.com/product-page/e-battery-charger-25a/)
+The battery unfortunately would only work with its own charger and I did not want to mess with this beacuse of the warrenty
+So I needed 230Vac@1250Watt. Therefore I purchased a 24V/2500Watt FCHAO (Peter inverter) to make sure it was only loaded 50% which usually greatly increases the operating time.
 
 To allow switching the inverter on/off based on the load (low when the outboard engine battery was charged), solar storage battery condition and temperature I needed these values as sensor input for a simple Homeassistant system. The information is available on the remote display which is connected via an RS485 connection. I suspected Modbus but unfortunately the protocol was propritary so I had to reverse engeneer it.
+
+# The RS485 protocol 
 
 Wiring Diagram, I used a standard Ethernet cable
 | **Wire** | **Pin** | **Function** | **Description** |
