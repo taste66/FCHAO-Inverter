@@ -1,0 +1,171 @@
+esphome:
+  name: fchao-interface
+  friendly_name: FCHAO-Interface
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+  level: INFO
+  #level: ERROR
+  #level: DEBUG
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: ""
+
+# Run webserver to see serial log in HEX
+web_server:
+  port: 80
+  log: true
+  local: true # allow it to work without internet access
+  version: 3 # HA style page
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  # ssid: !secret wifi_ssid
+  # password: !secret wifi_password
+  ssid: !secret wifi_ssid_container
+  password: !secret wifi_password_container
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Fchao-Interface Hotspot"
+
+captive_portal:
+
+# example from
+# https://community.home-assistant.io/t/how-to-uart-read-without-custom-component/491950
+
+globals:
+  - id: output_voltage
+    type: int
+    restore_value: no
+  - id: output_power
+    type: int
+    restore_value: no
+  - id: input_voltage
+    type: float
+    restore_value: no
+  - id: int_temperature
+    type: float
+    restore_value: no
+
+uart:
+  id: rs485_uart
+  rx_pin: GPIO20
+  tx_pin: GPIO21
+  baud_rate: 9600 # Baudrate for RS485 link
+  stop_bits: 1
+  parity: NONE
+
+  debug:
+      direction: RX
+      dummy_receiver: true
+      after:
+        delimiter: [0xEE] # closing byte
+
+      sequence:
+        # - logger.log:
+        #     format: "start_fchao: start waiting for the fchao response"
+
+        - lambda: |-
+
+            ESP_LOGD("fchao_start", "Start listening to FCHAO@RS485");
+
+            if (bytes.size() == 17) { // Ensure we have the full payload
+              if (bytes[0] == 0xAE && bytes[1] == 0x01 && bytes[2] == 0x12 && bytes[3] == 0x83) {
+                ESP_LOGD("fchao_response", "Header AE011283 found!");
+
+                // split the response per nibble as decimal value
+                std::vector<uint8_t> decimal_nibbles;
+                for (size_t i = 4; i < 13; ++i) {
+                  if (i < bytes.size()) { // Ensure we don't go out of bounds
+                    uint8_t byte = bytes[i];
+                    decimal_nibbles.push_back(byte >> 4); // Upper nibble
+                    decimal_nibbles.push_back(byte & 0x0F); // Lower nibble
+                    }
+                }
+
+                // load the variables
+                uint16_t output_voltage_local = (decimal_nibbles[0] * 1000.0f) + (decimal_nibbles[1] * 100.0f) + (decimal_nibbles[2] * 10.0f) + decimal_nibbles[3];
+                uint16_t output_power_local = (decimal_nibbles[4] * 1000.0f) + (decimal_nibbles[5] * 100.0f) + (decimal_nibbles[6] * 10.0f) + decimal_nibbles[7];
+                uint16_t input_voltage_local = ((decimal_nibbles[8] * 1000.0f) + (decimal_nibbles[9] * 100.0f) + (decimal_nibbles[10] * 10.0f) + decimal_nibbles[11]);
+                uint16_t int_temperature_local = (decimal_nibbles[12] * 1000.0f) + (decimal_nibbles[13] * 100.0f) + (decimal_nibbles[14] * 10.0f) + decimal_nibbles[15];
+                // write the variables to debug log
+
+                ESP_LOGD("fchao_sensors", "output_voltage: %u", output_voltage_local);
+                ESP_LOGD("fchao_sensors", "output_power: %u", output_power_local);
+                ESP_LOGD("fchao_sensors", "input_voltage: %u", input_voltage_local);
+                ESP_LOGD("fchao_sensors", "int_temperature: %u", int_temperature_local);
+
+                id(output_voltage) = output_voltage_local;
+                id(output_power) = output_power_local;
+                id(input_voltage) = input_voltage_local;
+                id(int_temperature) = int_temperature_local / 10.0f;
+
+              } else {
+                ESP_LOGE("fchao_response", "Header AE011283 NOT found.");
+                UARTDebug::log_hex(direction, bytes, ' '); // print received hex bytes when debug
+                }
+            } else {
+              ESP_LOGE("fchao_response", "Incomplete response received");
+              UARTDebug::log_hex(direction, bytes, ' '); // print received hex bytes when debug
+            }
+
+            // Update the global variables
+
+interval:
+  - interval: 5s
+    then:
+      - uart.write: [0xAE, 0x01, 0x01, 0x03, 0x05, 0xEE]
+      - logger.log:
+          format: "start_fchao: start waiting for the fchao response"
+          level: debug
+
+sensor:
+  - platform: template
+    name: "Output Voltage"
+    unit_of_measurement: "V"
+    lambda: return id(output_voltage);
+    accuracy_decimals: 0
+    icon: mdi:sine-wave
+
+  - platform: template
+    name: "Power"
+    lambda: return id(output_power);
+    unit_of_measurement: "W"
+    accuracy_decimals: 0
+    icon: mdi:power
+
+  - platform: template
+    name: "Input Voltage"
+    lambda: return id(input_voltage) / 10;
+    unit_of_measurement: "V"
+    accuracy_decimals: 1
+    icon: mdi:battery
+
+  - platform: template
+    name: "Temperature"
+    lambda: return id(int_temperature)*10;
+    unit_of_measurement: "°C"
+    accuracy_decimals: 0
+    icon: "mdi:thermometer"
+
+switch:
+  - platform: gpio
+    pin: GPIO5
+    id: fchao_power
+    name: "FCHAO power"
+    icon: "mdi:power"
+    on_turn_on:
+      - delay: 26 hours
+      - switch.turn_off: fchao_power    
+
