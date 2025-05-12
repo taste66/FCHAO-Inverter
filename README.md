@@ -45,6 +45,12 @@ With changing input voltage output power and temperater I found tis was the enco
 
 So infact the decimal number ar represented by nibbles of the Hex code. They only range between 0 .. 9.
 
-I used ESPhome with an ESP32-C1 do to de RS485 commnication, decode the data and create the sensors fro home assistant. 
+# The HW
+
+I used ESPhome with an ESP32-C1 do to de RS485 commnication, decode the data and create the sensors for home assistant.
+To convert the UART at pins GPIO20 + 21 to RS485 I used a MAX3485 module powered by 3.3V from the ESP32-C3.
+
+# The code
+Not being a SW engineer coding this in C++ was a chalange. Using ESPhome gives you the full framework but decoding the received data needs to be done in C++ using the Lamba function of ESP home. With the help of AI I got something working although there is for sure room for improvement. The code is available in the file [FCHAO-Inverter.yaml](https://github.com/taste66/FCHAO-Inverter/blob/main/FCHAO-Inverter.yaml)
 
 
